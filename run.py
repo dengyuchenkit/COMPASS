@@ -184,6 +184,59 @@ EnvSceneAssetCfgMap = {
 EnvSceneAssetCfgMap.update(environments.nurec_envs)
 
 
+def _enable_spg_runtime_settings():
+    """Enable Isaac Sim settings required by NuRec runtime SPG assets."""
+    import carb
+    import omni.kit.app
+
+    app = omni.kit.app.get_app()
+    app.get_extension_manager().set_extension_enabled_immediate("omni.rtx.spg", True)
+
+    settings = carb.settings.get_settings()
+    settings.set_bool("/rtx/spg/enabled", True)
+    settings.set_bool("/rtx/rtpt/gaussian/skipTonemapping/enabled", False)
+    settings.set_bool("/omni/rtx/nre/compositing/disableNuRecPostProcessings", True)
+
+
+def _parse_ppisp_cfg_from_source_usd(usd_path: str, shader_prim_path: str):
+    """Parse PPISP inputs from a source USD/USdz shader and freeze them for live-stage use."""
+    from pxr import Usd
+    from isaaclab_ppisp.cfg import ppisp_cfg_from_usd_stage
+
+    source_stage = Usd.Stage.Open(usd_path)
+    if source_stage is None:
+        raise RuntimeError(f"Failed to open NuRec USD stage for PPISP parsing: {usd_path}")
+
+    ppisp_cfg = ppisp_cfg_from_usd_stage(source_stage, shader_prim_path)
+    # The source shader path is not necessarily present in the live Isaac Lab
+    # stage because UsdFileCfg references the USD default prim. Clear it so
+    # Isaac Lab validates the parsed inputs instead of re-resolving the source
+    # path against the live training stage.
+    ppisp_cfg.shader_prim_path = None
+    return ppisp_cfg
+
+
+def _configure_nurec_runtime_spg(env_cfg, scene_cfg, is_rank_zero: bool):
+    """Apply runtime-SPG settings and source-stage PPISP cfg for NuRec scenes."""
+    if getattr(scene_cfg, "requires_spg_runtime", False):
+        _enable_spg_runtime_settings()
+        if is_rank_zero:
+            print("[NuRec SPG] Enabled runtime SPG rendering settings.")
+
+    ppisp_shader_path = getattr(scene_cfg, "ppisp_shader_path", None)
+    if ppisp_shader_path is None:
+        return
+    usd_path = getattr(getattr(scene_cfg, "spawn", None), "usd_path", None)
+    if usd_path is None:
+        raise RuntimeError("NuRec scene has ppisp_shader_path but no spawn.usd_path.")
+    camera_cfg = getattr(env_cfg.scene, "camera", None)
+    if camera_cfg is None:
+        raise RuntimeError("NuRec scene has ppisp_shader_path but the environment has no camera sensor.")
+    camera_cfg.isp_cfg = _parse_ppisp_cfg_from_source_usd(usd_path, ppisp_shader_path)
+    if is_rank_zero:
+        print(f"[NuRec PPISP] Applied source USD shader to robot camera: {ppisp_shader_path}")
+
+
 def gin_config_to_dictionary(gin_config):
     """
     Parses the gin configuration to a dictionary.
@@ -288,6 +341,7 @@ def run(run_mode,
     env_cfg.scene.env_spacing = env_cfg.scene.environment.env_spacing
     env_cfg.scene.num_envs = num_envs
     env_cfg.events.reset_base.params["pose_range"] = env_cfg.scene.environment.pose_sample_range
+    _configure_nurec_runtime_spg(env_cfg, env_cfg.scene.environment, is_rank_zero)
 
     # Setup terrain (disable if requested)
     if disable_terrain or args_cli.disable_terrain:

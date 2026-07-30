@@ -92,6 +92,13 @@ class EnvSceneAssetCfg(AssetBaseCfg):
     # Replicate physics in the scene.
     replicate_physics = True
 
+    # Optional source-stage PPISP shader used by NuRec runtime SPG assets.
+    ppisp_shader_path: str | None = None
+
+    # True when the scene requires the Isaac Sim SPG runtime extension/settings
+    # before camera rendering.
+    requires_spg_runtime: bool = False
+
 
 # NuRec Real2Sim scenes are defined in ``nurec_scenes.py`` and registered into
 # USD_PATHS / OMAP_PATHS / ``nurec_envs`` via a bottom-of-file import (see end of module).

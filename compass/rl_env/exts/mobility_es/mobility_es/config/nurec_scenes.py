@@ -41,6 +41,7 @@ _USD_DIR = os.path.join(os.path.dirname(__file__), "../usd")
 
 # Defaults shared by all scenes; override per-scene via NurecScene fields.
 DEFAULT_USD_FILE = "stage_particle_spg.usdz"
+
 DEFAULT_OMAP_FILE = "occupancy_map.yaml"
 DEFAULT_ORIGIN_CONVENTION = "bottom-left"
 DEFAULT_ENV_SPACING = 500.0
@@ -57,6 +58,8 @@ class NurecScene:
         omap_file: Occupancy-map YAML filename under ``usd/<folder>/``.
         origin_convention: Occupancy-map origin convention ("bottom-left" or "top-left").
         env_spacing: Per-env spacing [m]; large for the sizeable Real2Sim scenes.
+        ppisp_shader_path: Optional PPISP shader path to parse from the source USDZ.
+        requires_spg_runtime: Whether the scene needs Isaac Sim SPG runtime settings.
     """
 
     folder: str
@@ -65,12 +68,18 @@ class NurecScene:
     omap_file: str = DEFAULT_OMAP_FILE
     origin_convention: str = DEFAULT_ORIGIN_CONVENTION
     env_spacing: float = DEFAULT_ENV_SPACING
+    ppisp_shader_path: str | None = None
+    requires_spg_runtime: bool = False
 
 
 # Add a scene by appending one self-describing line. Place its assets under
 # ``usd/<folder>/`` (the USD file + occupancy_map.yaml + .png).
 NUREC_SCENES = [
-    NurecScene("nova_carter-galileo", "NovaCarterGalileo_NuRec"),
+    NurecScene("nova_carter-galileo",
+               "NovaCarterGalileo_NuRec",
+               usd_file="particle_spg-runtime.usdz",
+               ppisp_shader_path="/Render/front_stereo_camera_left__0/PPISPAuto",
+               requires_spg_runtime=True),
     NurecScene("nova_carter-cafe", "NovaCarterCafe_NuRec"),
     NurecScene("hand_hold-endeavor-andoria", "HandHoldEndeavorAndoria_NuRec"),
     NurecScene("hand_hold-endeavor-livingroom", "HandHoldEndeavorLivingroom_NuRec"),
@@ -102,6 +111,8 @@ def make_nurec_env(scene: "NurecScene") -> EnvSceneAssetCfg:
             ),
         ),
         env_spacing=scene.env_spacing,
+        ppisp_shader_path=scene.ppisp_shader_path,
+        requires_spg_runtime=scene.requires_spg_runtime,
     )
 
 

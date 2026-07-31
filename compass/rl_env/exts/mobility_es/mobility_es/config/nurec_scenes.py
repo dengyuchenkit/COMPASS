@@ -77,8 +77,8 @@ class NurecScene:
 NUREC_SCENES = [
     NurecScene("nova_carter-galileo",
                "NovaCarterGalileo_NuRec",
-               usd_file="particle_spg-runtime.usdz",
-               ppisp_shader_path="/Render/front_stereo_camera_left__0/PPISPAuto",
+               usd_file="particle_spg-runtime-static-ppisp.usdz",
+               ppisp_shader_path="/Render/front_stereo_camera_left__0/PPISP",
                requires_spg_runtime=True),
     NurecScene("nova_carter-cafe", "NovaCarterCafe_NuRec"),
     NurecScene("hand_hold-endeavor-andoria", "HandHoldEndeavorAndoria_NuRec"),
